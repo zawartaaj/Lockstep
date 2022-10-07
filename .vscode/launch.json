@@ -1,0 +1,44 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    //
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "chrome: open ddns client page",
+            "url": "http://z7762064.eero.online:8000/index.html", // use HTTP as HTTPS has cert issues for DDNS
+            "webRoot": "${workspaceFolder}",
+            "runtimeArgs": [
+                "--disable-web-security"
+            ],
+            "enableContentValidation": false,
+            "sourceMaps": true
+        },
+
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "chrome: open localhost client page",
+            "url": "http://localhost:8000/index.html",
+            "webRoot": "${workspaceFolder}",
+            "runtimeArgs": [
+                "--disable-web-security"
+            ],
+            "enableContentValidation": false,
+            "sourceMaps": true
+        },
+
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "node: websocket server",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/server/main.js"
+        }
+
+    ]
+}
