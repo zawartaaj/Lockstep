@@ -2,7 +2,6 @@
 Demo of lockstep networked multi-user simulation.
 
 ## Using the app
-
 In this demo, multiple users can (from their web browsers) open a url to wherever the index.html is located. This will open a simple Javascript demo where the user can click on the box in the center of the browser window to add balls with random velocities which will bounce around the box (this is the "simulation"). If other users are currently using the app, each will see a colored mouse pointer for the other users and the state of the simulation (the balls bouncing around) will be kept in "lockstep" between them.
 
 ## how it works
@@ -10,8 +9,16 @@ As the number of objects in a multi-user networked simulation increases, network
 
 To keep the simulation running at a high frame rate, a number of simulation steps are carried out between each input syncing step. This ratio is currently fixed to a number which is reasonable for current typical use cases, but would ideally be dynamically optimized for the limitations of the current users.
 
-## Development & how to develop and run locally
+##approach
+I've tried to keep the server dumb (so it doesn't need to change much) and the clients smart. Currently, the server just acts as a relay for client messages. Clients connect to the server, and then to specific channels in which they can relay messages as well as receive notifications of clients entering and leaving the station. The messages which the clients use the server to relay are effectively opaque to the server.
 
+##todo
+- protocol versioning (on both distributed objects layer and RelayServer layer)
+
+##notes
+There are two different VSCode run scripts
+
+## Development & how to develop and run locally
 This demo project was written using the VSCode IDE and has launch scripts (the the .vscode folder)
 that make developing/debugging it in VSCode convenient. 
 
@@ -21,13 +28,11 @@ To use it, you need:
 - to open a web browser with the URL to the webserver page for the client
 
 ### Running a web server locally
-
 Open a terminal, move to the project folder and run:
 
     node local-web-server/main.js
 
 ### Running the node websockets server locally
-
 Open a terminal, move to the project folder and run:
 
     node server/main.js
@@ -42,7 +47,6 @@ Or to run in the VSCode debugger:
 - select the "DEBUG CONSOLE" tab in the debugger pane, to see the output
 
 ### launching the client to use the local server
-
 Open a web browser to the URL:
 
     https://localhost:9000/index.html
@@ -57,7 +61,6 @@ Or to run in the client in the VSCode debugger:
 - select the "DEBUG CONSOLE" tab in the debugger pane, to see the output
 
 ### Notes on VSCode
-
 I've found it difficult to debug both the client and server in VSCode at the same time, 
 so I usually only debug one at a time and run the other externally 
 (the client in a browser, or the server from a terminal). 
