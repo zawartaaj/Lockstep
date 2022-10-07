@@ -1,2 +1,2 @@
 # Lockstep
-Demo of lockstep multi-user network simulation
+Demo of lockstep networked multi-user simulation
