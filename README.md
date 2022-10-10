@@ -4,7 +4,7 @@ Demo of lockstep networked multi-user simulation.
 ## Using the app
 In this demo, multiple users can (from their web browsers) open a url to where the index.html is located and open a Javascript demo where the user can click on the box in the center of the browser window to add balls which will bounce around (this is the "simulation"). If other users are currently using the app, each will see a colored mouse pointer for the other users and the state of the simulation (the balls bouncing around) will be kept in "lockstep" between them.
 
-## how it works
+## How it works
 The two main approaches to multi-user networked simulations:
 - central server runs simulation, takes user inputs and send users state changes 
 - clients run simulation in "lockstep", share user inputs between clients (perhaps relayed by a server)
@@ -16,12 +16,12 @@ In a lockstep system, to ensure the simulation produces the same state on each c
 - have all inputs to be applied to the next step
 - apply inputs in the same order
 
-## optimization
+## Optimization
 To keep the simulation running at a high frame rate, a number of simulation steps are carried out between each input syncing step. This ratio is currently fixed to a number which is reasonable for typical use cases, but could be dynamically optimized. In the code, I refer to the simulation steps as "simSteps" and the synchronization steps (points) as "syncSteps".
 
 The current code applies the inputs taken between syncStep T and T+1 to the simulation at the start of T+1. This is done by all clients pausing on sync steps to wait to get the latest inputs from the other clients. For higher latency situations, it may be better to shift this to apply those inputs to T+2 and possibly shorten the number of simSteps between each syncStep. This would allow simSteps to be taking place while the inputs are being communicated.
 
-## verification
+## Verification
 To ensure client states are synchronized, a hash of the state of the simulation can be shared and verified periodically.
 
 ## How to develop and run locally
@@ -55,7 +55,7 @@ Or to run in the VSCode debugger:
 - click the run button (the right arrow icon button to the left of the pull down menu)
 - select the "DEBUG CONSOLE" tab in the debugger pane, to see the output
 
-### launching the client to use the local server
+### Launching the client to use the local server
 
 Open a web browser to the URL:
 
