@@ -12,9 +12,9 @@ The two main approaches to multi-user networked simulations:
 Under ideal conditions they're equivalent, but each has advantages under constraints such as net bandwidth, latency, relative bandwidth of inputs vs state changes for the given application, etc.
 
 In a lockstep system, to ensure the simulation produces the same state on each client, clients need to ensure that they start with the same state (whenever a client joins the simulation) and that at each synchronization step that all clients:
-- agree on the current set of clients
-- have all inputs to be applied to the next
-- inputs are applied in the same order on all clients
+- agree on current set of clients
+- have all inputs to be applied to the next step
+- apply inputs in the same order
 
 ## optimization
 To keep the simulation running at a high frame rate, a number of simulation steps are carried out between each input syncing step. This ratio is currently fixed to a number which is reasonable for typical use cases, but could be dynamically optimized. In the code, I refer to the simulation steps as "simSteps" and the synchronization steps (points) as "syncSteps".
