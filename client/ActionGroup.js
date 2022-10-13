@@ -2,11 +2,11 @@
 
 
 (class ActionGroup extends Serializable {
-    initPrototype () {
+    initPrototype () { 
         this.newSerializableSlot("clientId", null)
         this.newSerializableSlot("actions", null)
         this.newSerializableSlot("syncTick", null)
-        this.newSerializableSlot("currentSimHash", null) 
+        this.newSerializableSlot("hash", null) 
     }
 
     init () {

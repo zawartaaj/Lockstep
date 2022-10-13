@@ -14,9 +14,9 @@
         this.newSlot("simTimeout", 0)
         this.newSlot("simTick", 0)
         this.newSlot("syncTick", 0)
-        this.newSlot("simTicksPerSyncTick", 30)
-        this.newSlot("fps", 60) // desired frames per second
-
+        //this.newSlot("simTicksPerSyncTick", 10)
+        this.newSlot("syncsPerSecond", 3) // must be smaller than fps
+        this.newSlot("fps", 60) // desired frames per second, which currently equals the simTicks per second
 
         // things 
         this.newSlot("things", null)
@@ -35,7 +35,7 @@
         //this.newSlot("clientsSet", null)
 
         // sim hash
-        this.newSlot("currentSimHash", null)
+        this.newSlot("simHashes", null) // time to simHash map 
 
         this.newSlot("rng", null) // RandomNumberGenerator
 
@@ -50,11 +50,16 @@
         this.newSlot("stateRequestQueue", null) // Array of user ids
     }
 
+    simTicksPerSyncTick () {
+        return Math.ceil(this.fps()/this.syncsPerSecond())
+    }
+
     init () {
         super.init()
 
         this.setIsDebugging(true)
         // things
+        this.setSimHashes(new Map())
         this.setThings([]) // use an array to keep order the same across clients - not sure if this is necessary as Set may have consistent ordering
         this.setThingsToAdd([])
         this.setThingsToRemove([])
@@ -115,8 +120,17 @@
         return this
     }
 
+    currentSimHash () {
+        return this.simHashes().get(this.syncTick())
+    }
+
+    applySimHash () {
+        return this.simHashes().get(this.syncTick() - this.localUser().actionOffset())
+    }
+
     updateCurrentSimHash () {
-        this.setCurrentSimHash(this.things().simHash())
+        this.simHashes().set(this.syncTick(), this.things().simHash())
+        this.simHashes().delete(this.syncTick() - this.localUser().actionOffset() - 1)
         return this
     }
 
@@ -231,7 +245,7 @@
         if (clientsSet.size === 1) {
             this.startSim()
         } else {
-            this.requestStateFromNewUsers()
+            this.requestStateFromAnotherUser()
             // wait for setState
         }
     }
@@ -261,7 +275,8 @@
             user.setWorld(this)
             user.userPointer().setElement(this.element())
             this.usersToAdd().push(user)
-            this.localUser().userPointer().sharePosition()          
+            user.setJoinedAtSyncTick(this.syncTick())
+            this.localUser().userPointer().sharePosition()
         }
     }
 
@@ -299,18 +314,20 @@
 
     // --- syncing state ---
 
-    requestStateFromNewUsers () {
-        console.log(this.localUser().id() + " requestStateFromNewUsers()")
+    requestStateFromAnotherUser () {
+        //console.log(this.localUser().id() + " requestStateFromAnotherUser()")
         const otherUser = this.usersToAdd().first()
         const aClient = otherUser.client()
         this.requestStateFromClient(aClient)
     }
 
     requestStateFromClient (aClient) {
-        console.log(this.localUser().id() + " requestStateFromClient(" + aClient.distantObjectForProxy().remoteId() + ")")
+        const id = aClient.distantObjectForProxy().remoteId()
+        const newUser = this.userForId(id)
+
+        console.log(this.localUser().id() + " requestStateFromClient(" + id + ")")
         const rm = RemoteMessage.creationProxy().requestStateFor(this.localUser().id())
         aClient.asyncReceiveMessage(rm).ignoreResponse()
-        this.users().forEach(user => user.sharePosition()) // TODO: only send to new client 
     }
 
     onRemoteMessage_requestStateFor (id) {
@@ -327,20 +344,27 @@
     }
 
     sendStateToClientId (id) {
-        console.log(" sendStateToClient(" + id + ") on syncTick:" + this.syncTick() + " simTick:" + this.simTick())
-        const user = this.userForId(id)
-        if (user) {
-            const client = user.client()
+        console.log(" sendStateToClient(" + id + ") on syncTick: " + this.syncTick())
+        const newUser = this.userForId(id)
+        if (newUser) {
+            const client = newUser.client()
             const rm = RemoteMessage.creationProxy().setThingsAtSyncTick(this.getStateString(), this.syncTick(), this.simTick())
             client.asyncReceiveMessage(rm).ignoreResponse()
         } else {
-            console.log("user '" + id + "' removed before accepting response to state request")
+            console.log("newUser '" + id + "' removed before accepting response to state request")
         }
+
+        //this.users().forEach(user => user.sharePosition()) // TODO: only send to new client 
+        this.users().forEach(user => {
+            if (user !== newUser) {
+                user.onNewUserStateRequest(newUser)
+            }
+        }) 
     }
 
     onRemoteMessage_setThingsAtSyncTick (serializedThings, syncTick, newSimTick) {
+        this.localUser().setJoinedAtSyncTick(syncTick)
         this.setStateString(serializedThings)
-        //syncTick = syncTick+1
         this.setSimTick(syncTick * this.simTicksPerSyncTick())
         this.setSyncTick(syncTick)
         console.log(this.localUser().shortDescription() + " onRemoteMessage_setThingsAtSyncTick(<things>, " + syncTick + ") simTick:", this.simTick())
@@ -466,6 +490,8 @@
         }
     }
 
+    // --- start/stop sim tick timer ---
+
     startSimTimeout () {
         if (!this.simTimeout()) {
             const to = setTimeout(() => {
@@ -483,6 +509,20 @@
         }
     }
 
+    // --- sync tick ---
+
+    onSyncTick () {
+        //console.log("syncTick: " + this.syncTick())
+        this.setIsWaitingForUserActions(true)
+        this.updateCurrentSimHash()
+        this.processStateRequestQueue()
+        this.processUserChanges()
+        this.localUser().onSyncTick()
+        this.localUser().sendActionGroup()
+        this.startUsersTimeout()
+        this.completeSyncTickIfReady()
+    }
+
 
     // --- user actions ---
 
@@ -495,16 +535,20 @@
         return matches[0]
     }
 
-
     onRemoteMessage_addActionGroup (ag) {
         assert(typeof(ag) !== "string")
 
         const user = this.userForId(ag.clientId())
         if (user) {
-            //console.log("got action group for user " + user.id())
-            user.setActionGroup(ag)
+            //console.log(this.localUser().shortId() + " received action group for " + user.shortId() + " syncTick: ", ag.syncTick())
+            if (user === this.localUser()) {
+                console.log("SECURITY ERROR: external client attempted to set local user actions")
+            } else {
+                //console.log("got action group for user " + user.shortId())
+                user.receiveActionGroup(ag)
+            }
         } else {
-            console.log("got action group for missing user")
+            console.log("ERROR: got action group for missing user")
             debugger;
         }
         this.completeSyncTickIfReady()
@@ -532,17 +576,6 @@
         ----- now we see non matching syncTick
     */
 
-    onSyncTick () {
-        this.setIsWaitingForUserActions(true)
-        this.updateCurrentSimHash()
-        this.processStateRequestQueue()
-        this.processUserChanges()
-        this.localUser().onSyncTick()
-        this.localUser().prepareActionGroup().sendActionGroup()
-        this.startUsersTimeout()
-        this.completeSyncTickIfReady()
-    }
-
     completeSyncTickIfReady () {
         if (this.isWaitingForUserActions() && this.hasAllUserActions()) {
             this.clearUsersTimeout()
@@ -553,7 +586,7 @@
         }
     }
 
-    // --- users timeout --- 
+    // --- wait-on-users-input timeout --- 
 
     startUsersTimeout () {
         assert(!this.usersTimeout())
@@ -570,17 +603,26 @@
         }
     }
 
-    usersStillWaiting () {
-        return this.users().filter(user => !user.hasActionGroup())
-    }
-
     onUsersTimeout () {
-        console.log("EXCEPTION: onUsersTimeout: syncTick:" + this.syncTick() + " still waiting on users: ", this.usersStillWaiting().map(user => user.id()))
+        console.log("EXCEPTION: onUsersTimeout: syncTick " + this.syncTick() + " waiting on users for syncTick: ", this.syncTick() - this.localUser().actionOffset() )
+        this.usersStillWaiting().forEach(user => {
+            console.log(user.shortId() + ":")
+            console.log("  canHaveActionGroup:", user.canHaveActionGroup())
+            console.log("  hasActionGroup:", user.hasActionGroup())
+            console.log("  actionGroups:" + JSON.stringify(Array.from(user.actionGroups().keys())))
+        })
         //throw new Error("onUsersTimeout")
         console.log("will wait for user actions or disconnect")
+        //this.startUsersTimeout()
     }
 
     // ---
+
+    usersStillWaiting () {
+        return this.users().filter(user => {
+            return user.canHaveActionGroup() && !user.hasActionGroup()
+        })
+    }
 
     hasAllUserActions () {
         return this.usersStillWaiting().length === 0
@@ -595,7 +637,7 @@
     // --- hash ---
 
     showHash () {
-        console.log(this.localUser().id() + " syncTick:" +  this.syncTick() + " hash:" + this.currentSimHash() + " users:" + this.users().length)
+        console.log(this.localUser().shortId() + " syncTick:" +  this.syncTick() + " hash:" + this.currentSimHash() + " users:" + this.users().length)
     }
 
 }.initThisClass());
