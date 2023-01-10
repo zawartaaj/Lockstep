@@ -33,8 +33,7 @@ class Boot extends Object {
       "client/ActionGroup.js",
       "client/View.js",
       "client/UserPointerView.js",
-      "client/BallView.js",
-      "client/BallTrailView.js"
+      "client/BallView.js"
     ]
   }
 

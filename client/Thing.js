@@ -20,7 +20,8 @@
         this.setPosition(Vector.clone())
         this.setVelocity(Vector.clone())
         this.setMass(1)
-        this.setView(BallTrailView.clone())
+        //this.setView(BallTrailView.clone())
+        this.setView(BallView.clone())
     }
 
     setWorld (aWorld) {
